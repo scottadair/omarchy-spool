@@ -408,6 +408,25 @@ private slots:
         QCOMPARE(theme.accentForeground(), QString("white"));
     }
 
+    void themeReadsFullPaletteAndFillsGaps() {
+        QTemporaryDir dir;
+        QDir(dir.path()).mkpath("theme");
+        QFile colors(dir.path() + "/theme/colors.toml");
+        QVERIFY(colors.open(QIODevice::WriteOnly));
+        colors.write("mode = \"light\"\naccent = \"#112233\"\nbackground = \"#fafafa\"\nforeground = '#222222'\nbogus = \"nope\"\n");
+        colors.close();
+
+        Theme theme(dir.path());
+        const auto c = theme.colors();
+        QCOMPARE(theme.mode(), QString("light"));
+        QCOMPARE(c.value("background").toString(), QString("#fafafa"));
+        QCOMPARE(c.value("foreground").toString(), QString("#222222"));
+        QVERIFY(!c.contains("bogus"));
+        // Keys the theme leaves out still resolve, so no QML color is ever empty.
+        QVERIFY(c.value("selection").toString().startsWith('#'));
+        QVERIFY(c.value("dark_foreground").toString().startsWith('#'));
+    }
+
     void themeFollowsChanges() {
         QTemporaryDir dir;
         QDir(dir.path()).mkpath("theme");

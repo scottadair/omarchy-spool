@@ -5,26 +5,37 @@ import QtQuick.Layouts
 
 ApplicationWindow {
     id: win
-    width: 1040
-    height: 700
-    minimumWidth: 720
+    width: 1100
+    height: 720
+    minimumWidth: 760
     minimumHeight: 480
     visible: true
     title: "Printer Settings"
-    color: "#0e0e10"
 
-    Material.theme: Material.Dark
+    readonly property var c: theme.colors
+    color: c.background
+    font.family: theme.fontFamily
+    font.pixelSize: 14
+
+    // Material is the base style (as in Omarchy's other apps); every color it
+    // draws comes from the current Omarchy theme.
+    Material.theme: theme.mode === "light" ? Material.Light : Material.Dark
     Material.accent: theme.accent
-    Material.background: "#0e0e10"
+    Material.primary: theme.accent
+    Material.background: c.background
+    Material.foreground: c.foreground
 
     property string view: "printers"
     readonly property bool modalOpen: addDialog.opened || renameDialog.opened || removeDialog.opened || help.opened
     readonly property bool inPrinters: view === "printers" && !modalOpen
     readonly property bool inJobs: view === "jobs" && !modalOpen
+    readonly property bool jobSelected: !!jobsView.list.currentItem
 
     function focusList() { (view === "jobs" ? jobsView.list : list).forceActiveFocus() }
     function showJobs() { if (backend.selectedPrinter) { view = "jobs"; jobsView.list.forceActiveFocus() } }
     function showPrinters() { view = "printers"; list.forceActiveFocus() }
+    function cancelSelectedJob() { if (jobSelected && jobsView.list.currentItem.active) backend.cancelJob(jobsView.list.currentItem.jobId) }
+    function restartSelectedJob() { if (jobSelected && !jobsView.list.currentItem.active) backend.restartJob(jobsView.list.currentItem.jobId) }
 
     Connections {
         target: backend.printers
@@ -55,9 +66,9 @@ ApplicationWindow {
     Shortcut { sequence: "J"; context: Qt.ApplicationShortcut; enabled: win.inPrinters; onActivated: win.showJobs() }
     Shortcut { sequence: "Escape"; context: Qt.ApplicationShortcut; enabled: win.inJobs; onActivated: win.showPrinters() }
     Shortcut { sequence: "J"; context: Qt.ApplicationShortcut; enabled: win.inJobs; onActivated: win.showPrinters() }
-    Shortcut { sequence: "X"; context: Qt.ApplicationShortcut; enabled: win.inJobs && jobsView.list.currentItem && jobsView.list.currentItem.active; onActivated: backend.cancelJob(jobsView.list.currentItem.jobId) }
-    Shortcut { sequence: "Delete"; context: Qt.ApplicationShortcut; enabled: win.inJobs && jobsView.list.currentItem && jobsView.list.currentItem.active; onActivated: backend.cancelJob(jobsView.list.currentItem.jobId) }
-    Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: win.inJobs && jobsView.list.currentItem && !jobsView.list.currentItem.active; onActivated: backend.restartJob(jobsView.list.currentItem.jobId) }
+    Shortcut { sequence: "X"; context: Qt.ApplicationShortcut; enabled: win.inJobs; onActivated: win.cancelSelectedJob() }
+    Shortcut { sequence: "Delete"; context: Qt.ApplicationShortcut; enabled: win.inJobs; onActivated: win.cancelSelectedJob() }
+    Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: win.inJobs; onActivated: win.restartSelectedJob() }
 
     function askRename() {
         if (!backend.selectedPrinter) return
@@ -73,17 +84,22 @@ ApplicationWindow {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 12
+        anchors.margins: 14
+        spacing: 8
 
-        // Problems with cupsd itself, shown above everything else.
-        Rectangle {
-            visible: backend.connectionError !== ""
-            Layout.fillWidth: true
-            implicitHeight: connLabel.implicitHeight + 20
-            radius: 8
-            color: "#3a1a1a"; border.color: "#ff6b6b"
-            Label { id: connLabel; anchors.fill: parent; anchors.margins: 10; text: backend.connectionError; color: "#ffb4b4"; wrapMode: Text.Wrap }
+        // Title line, like the header of a TUI.
+        RowLayout {
+            spacing: 10
+            Label { text: "spool"; color: win.c.accent; font.bold: true; font.pixelSize: 16 }
+            Label { text: "printer settings"; color: win.c.dark_foreground }
+            Item { Layout.fillWidth: true }
+            Label {
+                visible: backend.connectionError !== ""
+                text: "✗ " + backend.connectionError
+                color: win.c.red
+                elide: Text.ElideRight
+                Layout.maximumWidth: win.width * 0.7
+            }
         }
 
         StackLayout {
@@ -92,25 +108,20 @@ ApplicationWindow {
             currentIndex: win.view === "jobs" ? 1 : 0
 
             RowLayout {
-                spacing: 16
+                spacing: 10
 
-                ColumnLayout {
-                    Layout.preferredWidth: 320
-                    Layout.maximumWidth: 320
+                Panel {
+                    title: "Printers"
+                    focused: list.activeFocus
+                    Layout.preferredWidth: 340
+                    Layout.maximumWidth: 340
                     Layout.fillHeight: true
-                    spacing: 10
-                    RowLayout {
-                        Label { text: "Printers"; font.pixelSize: 20; font.weight: Font.DemiBold; Layout.fillWidth: true }
-                        Button { text: "Add (A)"; highlighted: true; onClicked: addDialog.openDialog() }
-                    }
                     ListView {
                         id: list
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
+                        anchors.fill: parent
                         model: backend.printers
                         clip: true
                         focus: true
-                        spacing: 4
                         keyNavigationEnabled: true
                         boundsBehavior: Flickable.StopAtBounds
                         onCurrentIndexChanged: {
@@ -124,108 +135,112 @@ ApplicationWindow {
                     }
                 }
 
-                Rectangle { Layout.fillHeight: true; width: 1; color: "#26262b" }
-
                 DetailPane {
                     id: detail
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    onRename: win.askRename()
-                    onRemove: win.askRemove()
-                    onShowJobs: win.showJobs()
                     onLeaveOptions: list.forceActiveFocus()
                 }
             }
 
-            JobsView {
-                id: jobsView
-                onClose: win.showPrinters()
-            }
+            JobsView { id: jobsView }
         }
 
         // Status line: what just happened, or what we're waiting for.
-        Rectangle {
+        RowLayout {
+            spacing: 8
             Layout.fillWidth: true
-            implicitHeight: 38
-            radius: 8
-            color: backend.messageIsError ? "#3a1a1a" : "#17171a"
-            border.color: backend.messageIsError ? "#ff6b6b" : "#26262b"
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 12
-                anchors.rightMargin: 8
-                BusyIndicator { visible: backend.busy; running: visible; implicitHeight: 24; implicitWidth: 24 }
-                Label {
-                    Layout.fillWidth: true
-                    elide: Text.ElideRight
-                    text: backend.message !== "" ? backend.message : "Press ? for keyboard shortcuts"
-                    color: backend.messageIsError ? "#ffb4b4" : backend.message !== "" ? "#e8e8ea" : "#6d6d75"
-                }
-                ToolButton { visible: backend.message !== ""; text: "✕"; onClicked: backend.dismissMessage() }
+            Label {
+                text: backend.busy ? "…" : backend.messageIsError ? "✗" : backend.message !== "" ? "✓" : " "
+                color: backend.messageIsError ? win.c.red : backend.busy ? win.c.accent : win.c.green
+                font.bold: true
             }
+            Label {
+                Layout.fillWidth: true
+                elide: Text.ElideRight
+                text: backend.message
+                color: backend.messageIsError ? win.c.red : win.c.foreground
+            }
+            Hint { visible: backend.message !== ""; key: "×"; text: "dismiss"; onActivated: backend.dismissMessage() }
+        }
+
+        // The key bar, clickable for the mouse.
+        Flow {
+            Layout.fillWidth: true
+            spacing: 18
+            Hint { visible: win.view === "printers"; key: "a"; text: "add"; onActivated: addDialog.openDialog() }
+            Hint { visible: win.view === "printers"; key: "t"; text: "test page"; onActivated: backend.printTestPage() }
+            Hint { visible: win.view === "printers"; key: "d"; text: "default"; onActivated: backend.setDefault() }
+            Hint { visible: win.view === "printers"; key: "p"; text: "pause/resume"; onActivated: backend.togglePaused() }
+            Hint { visible: win.view === "printers"; key: "g"; text: "accept/reject"; onActivated: backend.toggleAccepting() }
+            Hint { visible: win.view === "printers"; key: "r"; text: "rename"; onActivated: win.askRename() }
+            Hint { visible: win.view === "printers"; key: "del"; text: "remove"; onActivated: win.askRemove() }
+            Hint { visible: win.view === "printers"; key: "o"; text: "options"; onActivated: detail.focusOptions() }
+            Hint { visible: win.view === "printers"; key: "j"; text: "jobs"; onActivated: win.showJobs() }
+            Hint { visible: win.view === "jobs"; key: "x"; text: "cancel job"; onActivated: win.cancelSelectedJob() }
+            Hint { visible: win.view === "jobs"; key: "r"; text: "restart job"; onActivated: win.restartSelectedJob() }
+            Hint { visible: win.view === "jobs"; key: "esc"; text: "back"; onActivated: win.showPrinters() }
+            Hint { key: "?"; text: "help"; onActivated: help.open() }
+            Hint { key: "q"; text: "quit"; onActivated: Qt.quit() }
         }
     }
 
     AddDialog { id: addDialog; onClosed: win.focusList() }
     HelpOverlay { id: help; onClosed: win.focusList() }
 
-    Popup {
+    TuiPopup {
         id: renameDialog
-        modal: true
-        anchors.centerIn: parent
-        width: 420
-        padding: 24
+        width: 460
         onClosed: win.focusList()
         contentItem: ColumnLayout {
-            spacing: 12
-            Label { text: "Rename " + backend.selectedPrinter; font.pixelSize: 18; font.weight: Font.DemiBold }
-            TextField {
+            spacing: 10
+            Label { text: "Rename " + backend.selectedPrinter; color: win.c.accent; font.bold: true; font.pixelSize: 16 }
+            Rectangle { height: 1; color: win.c.muted; Layout.fillWidth: true }
+            TuiField {
                 id: renameField
                 Layout.fillWidth: true
-                onAccepted: { if (backend.checkName(text) === "" || text === backend.selectedPrinter) { backend.renamePrinter(text); renameDialog.close() } }
+                onAccepted: { if (text === backend.selectedPrinter || backend.checkName(text) === "") { backend.renamePrinter(text); renameDialog.close() } }
             }
             Label {
                 readonly property string problem: renameField.text === backend.selectedPrinter ? "" : backend.checkName(renameField.text)
-                visible: problem !== ""; text: problem; color: "#ff6b6b"; Layout.fillWidth: true; wrapMode: Text.Wrap
+                visible: problem !== ""; text: "✗ " + problem; color: win.c.red; Layout.fillWidth: true; wrapMode: Text.Wrap
             }
-            Label { text: "Queue names can't contain spaces, / or #."; color: "#6d6d75"; font.pixelSize: 12 }
+            Label { text: "Queue names can't contain spaces, / or #."; color: win.c.dark_foreground; font.pixelSize: 12 }
             RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Button { text: "Cancel"; flat: true; onClicked: renameDialog.close() }
-                Button { text: "Rename (Enter)"; highlighted: true; onClicked: renameField.accepted() }
+                spacing: 18
+                Hint { key: "enter"; text: "rename"; onActivated: renameField.accepted() }
+                Hint { key: "esc"; text: "cancel"; onActivated: renameDialog.close() }
             }
         }
     }
 
-    Popup {
+    TuiPopup {
         id: removeDialog
-        modal: true
-        anchors.centerIn: parent
-        width: 440
-        padding: 24
-        onOpened: confirmRemove.forceActiveFocus()
+        width: 480
+        onOpened: removeKeys.forceActiveFocus()
         onClosed: win.focusList()
-        contentItem: ColumnLayout {
-            spacing: 14
-            Label { text: "Remove " + backend.selectedPrinter + "?"; font.pixelSize: 18; font.weight: Font.DemiBold }
-            Label {
-                Layout.fillWidth: true
-                wrapMode: Text.Wrap
-                color: "#9a9aa3"
-                text: "Its queue and any waiting jobs are deleted. The printer itself is untouched, and you can add it again later."
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Button { text: "Keep it (Esc)"; flat: true; onClicked: removeDialog.close() }
-                Button {
-                    id: confirmRemove
-                    text: "Remove (Enter)"
-                    highlighted: true
-                    Material.accent: "#ff6b6b"
-                    Keys.onReturnPressed: clicked()
-                    onClicked: { backend.removePrinter(); removeDialog.close() }
+        contentItem: FocusScope {
+            id: removeKeys
+            implicitHeight: removeColumn.implicitHeight
+            implicitWidth: removeColumn.implicitWidth
+            Keys.onReturnPressed: { backend.removePrinter(); removeDialog.close() }
+            Keys.onEnterPressed: { backend.removePrinter(); removeDialog.close() }
+            ColumnLayout {
+                id: removeColumn
+                anchors.fill: parent
+                spacing: 10
+                Label { text: "Remove " + backend.selectedPrinter + "?"; color: win.c.red; font.bold: true; font.pixelSize: 16 }
+                Rectangle { height: 1; color: win.c.muted; Layout.fillWidth: true }
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    color: win.c.foreground
+                    text: "Its queue and any waiting jobs are deleted. The printer itself is untouched, and you can add it again later."
+                }
+                RowLayout {
+                    spacing: 18
+                    Hint { key: "enter"; text: "remove"; onActivated: { backend.removePrinter(); removeDialog.close() } }
+                    Hint { key: "esc"; text: "keep it"; onActivated: removeDialog.close() }
                 }
             }
         }

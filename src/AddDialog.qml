@@ -1,16 +1,12 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 // Two steps: pick a printer (found on the network, or typed in), then name it.
-Popup {
+TuiPopup {
     id: dlg
-    modal: true
-    anchors.centerIn: parent
-    width: 580
-    padding: 24
-    closePolicy: Popup.CloseOnEscape
+    width: 600
+    readonly property var c: theme.colors
 
     property int stage: 0
     property string uri
@@ -64,116 +60,142 @@ Popup {
     }
 
     contentItem: ColumnLayout {
-        spacing: 14
+        spacing: 12
 
         Label {
             text: dlg.stage === 0 ? "Add a printer" : "Name the printer"
-            font.pixelSize: 20; font.weight: Font.DemiBold
+            color: dlg.c.accent; font.bold: true; font.pixelSize: 16
         }
+        Rectangle { height: 1; color: dlg.c.muted; Layout.fillWidth: true }
 
         // ---- step 1 ----
         ColumnLayout {
             visible: dlg.stage === 0
-            spacing: 12
+            spacing: 10
             Layout.fillWidth: true
 
             Label {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
-                color: "#f0a030"
+                color: dlg.c.yellow
                 font.pixelSize: 12
-                text: "Spool adds driverless (IPP Everywhere) printers: most network printers made since about 2015. Printers that need a vendor driver aren't supported yet."
+                text: "! Spool adds driverless (IPP Everywhere) printers: most network printers made since about 2015. Printers that need a vendor driver aren't supported yet."
             }
 
             RowLayout {
-                Label { text: "On your network"; color: "#9a9aa3"; Layout.fillWidth: true }
-                BusyIndicator { visible: backend.discovering; running: visible; implicitHeight: 24; implicitWidth: 24 }
-                Button { text: "Rescan (F5)"; flat: true; onClicked: backend.discover() }
+                Label { text: "On your network"; color: dlg.c.dark_foreground; Layout.fillWidth: true }
+                Label { visible: backend.discovering; text: "searching…"; color: dlg.c.accent }
+                Hint { key: "F5"; text: "rescan"; onActivated: backend.discover() }
             }
 
             ListView {
                 id: found
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(Math.max(count, 1), 4) * 52
+                Layout.preferredHeight: Math.min(Math.max(count, 1), 4) * 34
                 model: backend.discovered
                 clip: true
                 keyNavigationEnabled: true
-                spacing: 2
                 Keys.onReturnPressed: dlg.chooseFound()
                 Keys.onEnterPressed: dlg.chooseFound()
                 Keys.onTabPressed: address.forceActiveFocus()
                 Label {
                     anchors.centerIn: parent
                     visible: found.count === 0
-                    color: "#6d6d75"
-                    text: backend.discovering ? "Searching…" : "No printers found. Try Rescan, or enter an address below."
+                    color: dlg.c.dark_foreground
+                    text: backend.discovering ? "Searching…" : "None found. Rescan, or enter an address below."
                 }
-                delegate: ItemDelegate {
+                delegate: Item {
                     width: ListView.view.width
-                    height: 50
-                    highlighted: ListView.isCurrentItem && found.activeFocus
-                    onClicked: { found.currentIndex = index; dlg.chooseFound() }
-                    contentItem: RowLayout {
-                        Label { text: model.name; Layout.fillWidth: true; elide: Text.ElideRight }
-                        Chip { visible: model.added; text: "Already added"; tone: "muted" }
-                    }
-                    background: Rectangle {
-                        radius: 8
-                        color: highlighted ? Qt.rgba(Material.accent.r, Material.accent.g, Material.accent.b, 0.16) : "#17171a"
-                        border.color: highlighted ? Material.accent : "transparent"
+                    height: 34
+                    readonly property bool current: ListView.isCurrentItem && found.activeFocus
+                    Rectangle { anchors.fill: parent; color: parent.current ? dlg.c.selection : "transparent" }
+                    MouseArea { anchors.fill: parent; onClicked: { found.currentIndex = index; dlg.chooseFound() } }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
+                        Label { text: parent.parent.current ? "▸" : " "; color: dlg.c.accent; font.bold: true }
+                        Label {
+                            text: model.name
+                            color: model.added ? dlg.c.dark_foreground : dlg.c.foreground
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+                        Label { visible: model.added; text: "already added"; color: dlg.c.dark_foreground; font.pixelSize: 12 }
                     }
                 }
             }
 
-            Label { text: "Or by address"; color: "#9a9aa3" }
-            TextField {
+            Label { text: "Or by address"; color: dlg.c.dark_foreground }
+            TuiField {
                 id: address
                 Layout.fillWidth: true
-                placeholderText: "192.168.1.20, printer.local, ipp://…, ipps://…, socket://…"
+                placeholderText: "192.168.1.20  printer.local  ipp://…  ipps://…  socket://…"
                 onTextEdited: dlg.addressError = ""
                 onAccepted: dlg.chooseAddress()
                 Keys.onTabPressed: found.forceActiveFocus()
             }
             Label {
                 visible: dlg.addressError !== ""
-                text: dlg.addressError
-                color: "#ff6b6b"; Layout.fillWidth: true; wrapMode: Text.Wrap
+                text: "✗ " + dlg.addressError
+                color: dlg.c.red; Layout.fillWidth: true; wrapMode: Text.Wrap
             }
             RowLayout {
-                Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Button { text: "Cancel"; flat: true; onClicked: dlg.close() }
-                Button { text: "Next (Enter)"; highlighted: true; onClicked: address.activeFocus || address.text ? dlg.chooseAddress() : dlg.chooseFound() }
+                spacing: 18
+                Hint { key: "enter"; text: "select"; onActivated: address.text ? dlg.chooseAddress() : dlg.chooseFound() }
+                Hint { key: "tab"; text: "list / address" }
+                Hint { key: "esc"; text: "cancel"; onActivated: dlg.close() }
             }
         }
 
         // ---- step 2 ----
         ColumnLayout {
             visible: dlg.stage === 1
-            spacing: 12
+            spacing: 10
             Layout.fillWidth: true
 
-            Label { text: dlg.display; font.pixelSize: 15 }
-            Label { text: dlg.uri; color: "#6d6d75"; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
+            Label { text: dlg.display; color: dlg.c.bright_foreground; font.bold: true }
+            Label { text: dlg.uri; color: dlg.c.dark_foreground; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
 
-            TextField {
+            Label { text: "Queue name"; color: dlg.c.dark_foreground }
+            TuiField {
                 id: nameField
                 Layout.fillWidth: true
-                placeholderText: "Queue name"
                 onTextEdited: dlg.nameError = backend.checkName(text)
                 onAccepted: dlg.confirmAdd()
+                Keys.onTabPressed: makeDefault.forceActiveFocus()
             }
             Label {
                 visible: dlg.nameError !== ""
-                text: dlg.nameError
-                color: "#ff6b6b"; Layout.fillWidth: true; wrapMode: Text.Wrap
+                text: "✗ " + dlg.nameError
+                color: dlg.c.red; Layout.fillWidth: true; wrapMode: Text.Wrap
             }
-            CheckBox { id: makeDefault; text: "Make this the default printer"; checked: backend.printers.count === 0 }
-            RowLayout {
+            // Space toggles, like a TUI checkbox.
+            FocusScope {
+                id: makeDefault
+                property bool checked: backend.printers.count === 0
+                implicitHeight: checkLabel.implicitHeight + 8
                 Layout.fillWidth: true
-                Item { Layout.fillWidth: true }
-                Button { text: "Back (Esc)"; flat: true; onClicked: { dlg.stage = 0; found.forceActiveFocus() } }
-                Button { text: "Add printer (Enter)"; highlighted: true; enabled: dlg.nameError === ""; onClicked: dlg.confirmAdd() }
+                Keys.onSpacePressed: checked = !checked
+                Keys.onTabPressed: nameField.forceActiveFocus()
+                Keys.onReturnPressed: dlg.confirmAdd()
+                Rectangle { anchors.fill: parent; color: makeDefault.activeFocus ? dlg.c.selection : "transparent" }
+                Label {
+                    id: checkLabel
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: parent.left
+                    anchors.leftMargin: 8
+                    text: (makeDefault.checked ? "[x] " : "[ ] ") + "Make this the default printer"
+                    color: makeDefault.checked ? dlg.c.accent : dlg.c.foreground
+                }
+                MouseArea { anchors.fill: parent; onClicked: { makeDefault.forceActiveFocus(); makeDefault.checked = !makeDefault.checked } }
+            }
+            RowLayout {
+                spacing: 18
+                Hint { key: "enter"; text: "add printer"; onActivated: dlg.confirmAdd() }
+                Hint { key: "space"; text: "toggle default" }
+                Hint { key: "esc"; text: "back"; onActivated: { dlg.stage = 0; found.forceActiveFocus() } }
             }
         }
     }

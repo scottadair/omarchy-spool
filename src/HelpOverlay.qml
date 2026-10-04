@@ -1,41 +1,38 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import QtQuick.Layouts
 
-Popup {
+TuiPopup {
     id: help
-    modal: true
-    anchors.centerIn: parent
     width: 520
-    padding: 24
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    readonly property var c: theme.colors
 
     readonly property var rows: [
-        ["↑ ↓  /  K J", "Select printer (J is Jobs)"],
-        ["A", "Add a printer"],
-        ["T", "Print a test page"],
-        ["D", "Make default"],
-        ["P", "Pause / resume"],
-        ["G", "Accept / reject jobs"],
-        ["R", "Rename"],
+        ["↑ ↓  k", "Select printer"],
+        ["a", "Add a printer"],
+        ["t", "Print a test page"],
+        ["d", "Make default"],
+        ["p", "Pause / resume"],
+        ["g", "Accept / reject jobs"],
+        ["r", "Rename"],
         ["Delete", "Remove (asks first)"],
-        ["O", "Edit defaults (paper, duplex, color, quality)"],
-        ["J", "Jobs for this printer"],
-        ["X  /  R", "In Jobs: cancel  /  restart"],
+        ["o", "Edit defaults: ↑ ↓ row, ← → value, Esc back"],
+        ["j", "Jobs for this printer"],
+        ["x  r", "In Jobs: cancel  restart"],
         ["F5", "Refresh"],
         ["?", "This help"],
-        ["Q", "Quit"],
+        ["q", "Quit"],
     ]
 
     contentItem: ColumnLayout {
-        spacing: 10
-        Label { text: "Keyboard shortcuts"; font.pixelSize: 20; font.weight: Font.DemiBold }
+        spacing: 6
+        Label { text: "Keyboard shortcuts"; color: help.c.accent; font.bold: true; font.pixelSize: 16 }
+        Rectangle { height: 1; color: help.c.muted; Layout.fillWidth: true; Layout.bottomMargin: 4 }
         Repeater {
             model: help.rows
             RowLayout {
                 spacing: 16
-                Label { text: modelData[0]; color: theme.accent; font.family: "monospace"; Layout.preferredWidth: 130 }
+                Label { text: modelData[0]; color: help.c.accent; font.bold: true; Layout.preferredWidth: 90 }
                 Label { text: modelData[1]; Layout.fillWidth: true; wrapMode: Text.Wrap }
             }
         }

@@ -1,62 +1,49 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import QtQuick.Layouts
 
-ItemDelegate {
+Item {
     id: row
     width: ListView.view.width
-    height: 68
-    highlighted: ListView.isCurrentItem
-    onClicked: { ListView.view.currentIndex = index; ListView.view.forceActiveFocus() }
+    height: 46
+    readonly property bool current: ListView.isCurrentItem
+    readonly property var c: theme.colors
+    readonly property color tone: !model.enabled || model.severity === "error" ? c.red
+                                : model.severity === "warning" ? c.yellow
+                                : model.stateText === "Printing" ? c.accent : c.green
 
-    readonly property string tone: !enabled_ ? "error" : severity === "error" ? "error" : severity === "warning" ? "warn"
-                                  : stateText === "Printing" ? "accent" : "ok"
-    readonly property bool enabled_: model.enabled
+    Rectangle { anchors.fill: parent; color: row.current ? row.c.selection : "transparent" }
+    MouseArea { anchors.fill: parent; onClicked: { row.ListView.view.currentIndex = index; row.ListView.view.forceActiveFocus() } }
 
-    background: Rectangle {
-        radius: 10
-        color: row.highlighted ? Qt.rgba(Material.accent.r, Material.accent.g, Material.accent.b, 0.16)
-                               : row.hovered ? "#1c1c20" : "transparent"
-        border.color: row.highlighted ? Material.accent : "transparent"
-        border.width: 1
-    }
-
-    contentItem: RowLayout {
-        spacing: 12
-        Rectangle {
-            Layout.preferredWidth: 10; Layout.preferredHeight: 10; radius: 5
-            color: row.tone === "accent" ? theme.accent : row.tone === "ok" ? "#5fd08a" : row.tone === "warn" ? "#f0a030" : "#ff6b6b"
-        }
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: 2
-            RowLayout {
-                spacing: 6
-                Label {
-                    text: model.name
-                    font.pixelSize: 15
-                    font.weight: Font.Medium
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-                Label { visible: model.isDefault; text: "★"; color: theme.accent; font.pixelSize: 14 }
-            }
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
+        spacing: 0
+        Item { Layout.fillHeight: true }
+        RowLayout {
+            spacing: 8
+            Label { text: row.current ? "▸" : " "; color: row.c.accent; font.bold: true }
+            Label { text: "●"; color: row.tone }
             Label {
-                // The state, then the first thing that's wrong with it.
-                text: model.stateText + (model.accepting ? "" : " · not accepting jobs")
-                      + (model.reasons ? " · " + model.reasons : "")
-                color: "#9a9aa3"
-                font.pixelSize: 12
+                text: model.name
+                color: row.current ? row.c.bright_foreground : row.c.foreground
+                font.bold: row.current
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
+            Label { visible: model.isDefault; text: "★"; color: row.c.accent }
+            Label { visible: model.activeJobs > 0; text: model.activeJobs + "▤"; color: row.c.accent }
         }
         Label {
-            visible: model.activeJobs > 0
-            text: model.activeJobs + (model.activeJobs === 1 ? " job" : " jobs")
-            color: theme.accent
+            Layout.leftMargin: 38
+            Layout.fillWidth: true
+            elide: Text.ElideRight
+            text: (model.enabled ? model.stateText : "Paused") + (model.accepting ? "" : " · rejecting jobs")
+                  + (model.reasons ? " · " + model.reasons : "")
+            color: model.reasons ? row.tone : row.c.dark_foreground
             font.pixelSize: 12
         }
+        Item { Layout.fillHeight: true }
     }
 }

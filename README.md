@@ -47,5 +47,9 @@ bin/test       # Qt Test, offscreen
 bin/install    # makepkg -fsi, adds it to the launcher
 ```
 
+Colors, font and accent come from the current Omarchy theme and change live when
+you switch themes. The look follows the terminal apps: square bordered panels,
+the terminal font, a key bar along the bottom.
+
 Needs `qt6-base`, `qt6-declarative`, `libcups`, `cups-pk-helper` and
 `cups-filters` (for `driverless` discovery).

@@ -1,7 +1,12 @@
 <RCC>
     <qresource prefix="/">
         <file alias="Main.qml">Main.qml</file>
-        <file alias="Chip.qml">Chip.qml</file>
+        <file alias="Tag.qml">Tag.qml</file>
+        <file alias="Hint.qml">Hint.qml</file>
+        <file alias="Panel.qml">Panel.qml</file>
+        <file alias="TuiField.qml">TuiField.qml</file>
+        <file alias="TuiPopup.qml">TuiPopup.qml</file>
+        <file alias="OptionRow.qml">OptionRow.qml</file>
         <file alias="PrinterDelegate.qml">PrinterDelegate.qml</file>
         <file alias="DetailPane.qml">DetailPane.qml</file>
         <file alias="JobsView.qml">JobsView.qml</file>

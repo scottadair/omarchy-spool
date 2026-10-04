@@ -1,31 +1,35 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Controls.Material
 import QtQuick.Layouts
 
-// The right-hand side: who the printer is, what's wrong, the actions, and its own options.
-Item {
+// The right-hand side: who the printer is, what's wrong with it, and its own defaults.
+Panel {
     id: pane
+    title: backend.selectedPrinter || "Printer"
+    focused: optionsFocused
+
     signal leaveOptions()
-    signal rename()
-    signal remove()
-    signal showJobs()
 
     readonly property var p: backend.selected
+    readonly property var c: theme.colors
     readonly property bool has: backend.selectedPrinter !== ""
+    readonly property bool optionsFocused: {
+        for (let i = 0; i < rows.count; ++i)
+            if (rows.itemAt(i) && rows.itemAt(i).activeFocus) return true
+        return false
+    }
 
     function focusOptions() {
-        if (options.count > 0) { options.itemAt(0).forceActiveFocus(); return true }
+        if (rows.count > 0) { rows.itemAt(0).forceActiveFocus(); return true }
         return false
     }
 
     Label {
         anchors.centerIn: parent
         visible: !pane.has
-        color: "#9a9aa3"
+        color: pane.c.dark_foreground
         horizontalAlignment: Text.AlignHCenter
-        text: backend.loaded ? "No printers yet.\nPress A to add one." : "Looking for printers…"
-        font.pixelSize: 16
+        text: backend.loaded ? "No printers yet.\nPress  a  to add one." : "Looking for printers…"
     }
 
     Flickable {
@@ -38,89 +42,70 @@ Item {
         ColumnLayout {
             id: column
             width: parent.width
-            spacing: 18
+            spacing: 14
 
-            ColumnLayout {
-                spacing: 6
-                RowLayout {
-                    spacing: 10
-                    Label { text: pane.p.name || ""; font.pixelSize: 24; font.weight: Font.DemiBold }
-                    Chip { visible: !!pane.p.isDefault; text: "Default"; tone: "accent" }
-                    Chip {
-                        text: !pane.p.enabled ? "Paused" : pane.p.stateText
-                        tone: !pane.p.enabled ? "error" : pane.p.stateText === "Printing" ? "accent" : "ok"
-                    }
-                    Chip { visible: pane.p.accepting === false; text: "Rejecting jobs"; tone: "warn" }
-                }
-                Label {
-                    visible: !!pane.p.makeModel
-                    text: pane.p.makeModel || ""
-                    color: "#9a9aa3"
-                }
-                Label {
-                    text: pane.p.deviceUri || ""
-                    color: "#6d6d75"; font.pixelSize: 12
-                    elide: Text.ElideMiddle; Layout.fillWidth: true
-                }
-            }
-
-            // State reasons: toner low, paper jam and friends.
-            Flow {
-                Layout.fillWidth: true
+            RowLayout {
                 spacing: 8
-                visible: pane.p.reasons && pane.p.reasons.length > 0
-                Repeater {
-                    model: pane.p.reasons || []
-                    Chip { text: modelData; tone: pane.p.severity === "error" ? "error" : "warn" }
+                Tag { visible: !!pane.p.isDefault; text: "Default"; tone: pane.c.accent }
+                Tag {
+                    text: !pane.p.enabled ? "Paused" : pane.p.stateText
+                    tone: !pane.p.enabled ? pane.c.red : pane.p.stateText === "Printing" ? pane.c.accent : pane.c.green
                 }
-            }
-
-            Flow {
-                Layout.fillWidth: true
-                spacing: 8
-                Button { text: "Test page (T)"; onClicked: backend.printTestPage() }
-                Button { text: pane.p.isDefault ? "Is default" : "Make default (D)"; enabled: !pane.p.isDefault; onClicked: backend.setDefault() }
-                Button { text: pane.p.enabled ? "Pause (P)" : "Resume (P)"; onClicked: backend.togglePaused() }
-                Button { text: pane.p.accepting ? "Reject jobs (G)" : "Accept jobs (G)"; onClicked: backend.toggleAccepting() }
-                Button { text: "Rename (R)"; onClicked: pane.rename() }
-                Button { text: "Jobs (J)"; onClicked: pane.showJobs() }
-                Button { text: "Remove (Del)"; Material.foreground: "#ff6b6b"; onClicked: pane.remove() }
-            }
-
-            Rectangle { Layout.fillWidth: true; height: 1; color: "#26262b" }
-
-            Label { text: "Defaults for new jobs  (O to edit)"; color: "#9a9aa3"; font.pixelSize: 13 }
-
-            Label {
-                visible: options.count === 0
-                text: "This printer doesn't report any choices."
-                color: "#6d6d75"
+                Tag { visible: pane.p.accepting === false; text: "Rejecting jobs"; tone: pane.c.yellow }
             }
 
             GridLayout {
                 columns: 2
                 columnSpacing: 16
-                rowSpacing: 12
-                Layout.fillWidth: true
+                rowSpacing: 4
+                Label { text: "Model"; color: pane.c.dark_foreground; visible: !!pane.p.makeModel }
+                Label { text: pane.p.makeModel || ""; visible: !!pane.p.makeModel; Layout.fillWidth: true; elide: Text.ElideRight }
+                Label { text: "Location"; color: pane.c.dark_foreground; visible: !!pane.p.location }
+                Label { text: pane.p.location || ""; visible: !!pane.p.location; Layout.fillWidth: true; elide: Text.ElideRight }
+                Label { text: "Device"; color: pane.c.dark_foreground }
+                Label { text: pane.p.deviceUri || ""; Layout.fillWidth: true; elide: Text.ElideMiddle }
+            }
+
+            // State reasons: toner low, paper jam and friends.
+            ColumnLayout {
+                visible: pane.p.reasons && pane.p.reasons.length > 0
+                spacing: 2
                 Repeater {
-                    id: options
-                    model: backend.options
-                    delegate: ColumnLayout {
-                        id: opt
-                        required property var modelData
+                    model: pane.p.reasons || []
+                    Label {
+                        text: "! " + modelData
+                        color: pane.p.severity === "error" ? pane.c.red : pane.c.yellow
+                    }
+                }
+            }
+
+            RowLayout {
+                spacing: 8
+                Label { text: "Defaults for new jobs"; color: pane.c.accent; font.bold: true }
+                Rectangle { height: 1; color: pane.c.muted; Layout.fillWidth: true }
+                Hint { key: "o"; text: "edit" }
+            }
+
+            Label {
+                visible: rows.count === 0
+                text: "This printer doesn't report any choices."
+                color: pane.c.dark_foreground
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                // Counting rows (not listing them) keeps the rows, and the keyboard
+                // focus on them, alive when the printer reports a new current value.
+                Repeater {
+                    id: rows
+                    model: backend.options.length
+                    delegate: OptionRow {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: 1
-                        function forceActiveFocus() { combo.forceActiveFocus() }
-                        Label { text: modelData.label; color: "#9a9aa3"; font.pixelSize: 12 }
-                        ComboBox {
-                            id: combo
-                            Layout.fillWidth: true
-                            model: modelData.values
-                            textRole: "label"
-                            currentIndex: Math.max(0, modelData.values.findIndex(v => v.value === modelData.current))
-                            onActivated: index => backend.setOption(modelData.key, modelData.values[index].value)
-                            Keys.onEscapePressed: event => { pane.leaveOptions(); event.accepted = true }
-                        }
+                        opt: backend.options[index]
+                        onUp: if (index > 0) rows.itemAt(index - 1).forceActiveFocus()
+                        onDown: if (index < rows.count - 1) rows.itemAt(index + 1).forceActiveFocus()
+                        onLeave: pane.leaveOptions()
                     }
                 }
             }
