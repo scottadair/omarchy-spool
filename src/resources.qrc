@@ -1,0 +1,11 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="Main.qml">Main.qml</file>
+        <file alias="Chip.qml">Chip.qml</file>
+        <file alias="PrinterDelegate.qml">PrinterDelegate.qml</file>
+        <file alias="DetailPane.qml">DetailPane.qml</file>
+        <file alias="JobsView.qml">JobsView.qml</file>
+        <file alias="AddDialog.qml">AddDialog.qml</file>
+        <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
+    </qresource>
+</RCC>
