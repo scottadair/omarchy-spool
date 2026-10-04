@@ -1,0 +1,31 @@
+# Maintainer: Scott Adair
+pkgname=spool
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Printer settings for Omarchy'
+arch=('x86_64' 'aarch64')
+url='https://github.com/scottadair/omarchy-spool'
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'libcups' 'cups' 'cups-pk-helper' 'cups-filters')
+makedepends=('gcc' 'make')
+options=('!debug')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
+        'spool.desktop'
+        'spool.svg')
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+build() {
+  cd "omarchy-spool-$pkgver"
+  mkdir -p build
+  cd build
+  qmake6 ../spool.pro
+  make -j"$(nproc)"
+}
+
+package() {
+  cd "omarchy-spool-$pkgver"
+  install -Dm755 build/spool "$pkgdir/usr/bin/spool"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/spool.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/spool.svg"
+  install -Dm644 "$srcdir/spool.desktop" "$pkgdir/usr/share/applications/spool.desktop"
+}
