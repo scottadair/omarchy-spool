@@ -12,7 +12,9 @@ options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
         'spool.desktop'
         'spool.svg')
-sha256sums=('SKIP' 'SKIP' 'SKIP')
+sha256sums=('b7763fe73494459c3ed455c5af4f0d47934396fa1c5569ee7b0d7c472de11eb3'
+            'fbaf189f95d5e040951bf597a2cc7f74372161f0d66d92cd0685e18a4cebf5d6'
+            '93ea777f896e62ae670e9e4a431f47e37274103f9a4dcc19651c030c56cca60d')
 
 build() {
   cd "omarchy-spool-$pkgver"
